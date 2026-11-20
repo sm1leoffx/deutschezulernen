@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Немецкий: тренажёр</title>
+<style>
+:root{--bg:#f4f6f8;--fg:#1b2a3a;--mut:#5b6b7b;--card:#fff;--line:#d6dde4;--ok:#0f766e;--bad:#b42318;--hi:#9a6700;color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--bg:#121a22;--fg:#e8eef3;--mut:#9aabba;--card:#1b2630;--line:#2c3a47;--ok:#4fd1a5;--bad:#ff8a7a;--hi:#f0b429;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 "Avenir Next","Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+main{max-width:560px;margin:0 auto;padding:16px}
+h1{font:600 1.5rem Charter,Georgia,serif;margin:8px 0 2px}
+.bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.sent{font:1.45rem/1.4 Charter,Georgia,serif;margin:18px 0 6px;overflow-wrap:anywhere}
+.vocab{color:var(--mut);font-size:.9rem;margin-bottom:16px}
+.opts,.menu{display:grid;gap:10px}
+.menu{margin:16px 0}
+button{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 10px;cursor:pointer}
+button:focus-visible{outline:3px solid var(--hi);outline-offset:2px}
+button.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 18%,var(--card))}
+button.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,var(--card))}
+.fb{margin-top:16px;padding:10px 14px;border-left:4px solid var(--line);white-space:pre-line}
+.fb.ok{border-color:var(--ok)}.fb.bad{border-color:var(--bad)}
+.go{background:var(--fg);color:var(--bg);margin-top:14px;width:100%}
+.hint{color:var(--hi);margin-top:10px;min-height:1.5em}
+small{color:var(--mut)}
+.ctx{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;line-height:1.75;font-size:.95rem}
+textarea{width:100%;font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0}
+.ctx u{text-decoration:none;font-weight:600}.ctx .ok{color:var(--ok)}.ctx .bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+const C=["Nom","Akk","Dat","Gen"],G=["m","f","n","pl"],SIX=["der","die","das","den","dem","des"];
+const DEF={Nom:["der","die","das","die"],Akk:["den","die","das","die"],Dat:["dem","der","dem","den"],Gen:["des","der","des","der"]};
+const EIN={Nom:["ein","eine","ein","keine"],Akk:["einen","eine","ein","keine"],Dat:["einem","einer","einem","keinen"],Gen:["eines","einer","eines","keiner"]};
+const E={weak:{Nom:["e","e","e","en"],Akk:["en","e","e","en"],Dat:["en","en","en","en"],Gen:["en","en","en","en"]},
+mixed:{Nom:["er","e","es","en"],Akk:["en","e","es","en"],Dat:["en","en","en","en"],Gen:["en","en","en","en"]},
+strong:{Nom:["er","e","es","e"],Akk:["en","e","es","e"],Dat:["em","er","em","en"],Gen:["en","er","en","er"]}};
+const TR={weak:"после der/die/das",mixed:"после ein/kein",strong:"без артикля"};
+const TIP={weak:"После der/die/das: -e только в Nom (m, f, n) и Akk (f, n). Иначе -en.",
+mixed:"После ein/kein как после der, но Nom m → -er, Nom/Akk n → -es.",
+strong:"Без артикля берётся окончание артикля (der → -er, dem → -em, die → -e). Исключение: Gen m/n → -en."};
+const N=[["Vorschlag","Vorschläge","m","Vorschlags","предложение"],["Mann","Männer","m","Mannes","мужчина"],["Termin","Termine","m","Termins","встреча"],["Vertrag","Verträge","m","Vertrags","договор"],["Rock","Röcke","m","Rocks","юбка"],
+["Erfahrung","Erfahrungen","f","","опыт"],["Entscheidung","Entscheidungen","f","","решение"],["Möglichkeit","Möglichkeiten","f","","возможность"],["Wohnung","Wohnungen","f","","квартира"],["Aufgabe","Aufgaben","f","","задача"],["Meinung","Meinungen","f","","мнение"],
+["Angebot","Angebote","n","Angebots","оферта"],["Ergebnis","Ergebnisse","n","Ergebnisses","результат"],["Ziel","Ziele","n","Ziels","цель"],["Problem","Probleme","n","Problems","проблема"],["Unternehmen","Unternehmen","n","Unternehmens","предприятие"],["Gespräch","Gespräche","n","Gesprächs","разговор"],["Jackett","Jacketts","n","Jacketts","пиджак"]];
+const A=[["wichtig","важный"],["schwierig","сложный"],["freundlich","дружелюбный"],["modern","современный"],["günstig","выгодный"],["zuverlässig","надёжный"],["nützlich","полезный"],["aktuell","актуальный"],["schwarz","чёрный"],["grau","серый"],["alt","старый"],["locker","свободный"]];
+const FR={Nom:["Hier {v} {np}.","{np} {v} mir aufgefallen."],Akk:["Ich sehe {np}.","Er kauft {np}.","Wir suchen {np}.","Sie braucht {np}."],
+Dat:["Ich spreche mit {np}.","Sie hilft {np}.","Er dankt {np}.","Das gehört {np}."],Gen:["Wegen {np} bleiben wir zu Hause.","Trotz {np} kommen wir.","Während {np} warten wir."]};
+const GN={m:"мужской",f:"женский",n:"средний"},GR={m:"der",f:"die",n:"das",pl:"die"};
+const ARTE={der:"er",die:"e",das:"es",den:"en",dem:"em",des:"en"};
+const FRR={"Hier {v} {np}.":"«Hier ist/sind …» — подлежащее (кто? что?), значит Nominativ.","{np} {v} mir aufgefallen.":"это подлежащее (что бросилось в глаза?), значит Nominativ.",
+"Ich sehe {np}.":"sehen требует прямого дополнения (кого? что?), значит Akkusativ.","Er kauft {np}.":"kaufen требует прямого дополнения (что покупает?), значит Akkusativ.",
+"Wir suchen {np}.":"suchen требует прямого дополнения (кого? что ищем?), значит Akkusativ.","Sie braucht {np}.":"brauchen требует прямого дополнения (что нужно?), значит Akkusativ.",
+"Ich spreche mit {np}.":"предлог mit всегда требует Dativ.","Sie hilft {np}.":"helfen — глагол с Dativ (кому помогает?).","Er dankt {np}.":"danken — глагол с Dativ (кому благодарит?).","Das gehört {np}.":"gehören — глагол с Dativ (кому принадлежит?).",
+"Wegen {np} bleiben wir zu Hause.":"предлог wegen требует Genitiv.","Trotz {np} kommen wir.":"предлог trotz требует Genitiv.","Während {np} warten wir.":"предлог während требует Genitiv."};
+const where=(t,e)=>{const r=[];for(const c of C)for(let i=0;i<4;i++)if(E[t][c][i]==e)r.push(c+" "+G[i]);return r.join(", ")};
+const whereA=a=>{const r=[];for(const c of C)for(let i=0;i<4;i++)if(DEF[c][i]==a)r.push(c+" "+G[i]);return r.join(", ")};
+const row=c=>G.map((x,i)=>x+" "+DEF[c][i]).join(" · ");
+const grp=k=>Object.entries(PR).filter(([,v])=>v==k).map(([p])=>p).join(", ");
+const nnote=(n,c,g,ns)=>g=="pl"&&c=="Dat"&&ns!=n[1]?` В Dativ мн.ч. к существительному добавляется -n: ${ns}.`:c=="Gen"&&(g=="m"||g=="n")?` В Genitiv к существительному добавляется -(e)s: ${ns}.`:"";
+const gdesc=(n,g)=>g=="pl"?`${n[0]} во мн.ч. (${n[1]})`:`${GR[g]} ${n[0]} (${GN[g]} род)`;
+const Q1="Найди слово, которое управляет падежом, и спроси: кто/что? (Nom), кого/что? (Akk), кому/чему? (Dat), чей/чего? (Gen).";
+const PR={durch:"Akk",für:"Akk",gegen:"Akk",ohne:"Akk",um:"Akk",aus:"Dat",bei:"Dat",mit:"Dat",nach:"Dat",von:"Dat",zu:"Dat",in:"W",an:"W",auf:"W",über:"W",unter:"W",vor:"W",hinter:"W",neben:"W",wegen:"Gen",trotz:"Gen",während:"Gen"};
+const CT={"in dem":"im","in das":"ins","an dem":"am","an das":"ans","bei dem":"beim","von dem":"vom","zu dem":"zum","zu der":"zur"};
+const W=`n|die Erfahrung|опыт
+n|die Entscheidung|решение
+n|die Möglichkeit|возможность
+n|die Bewerbung|заявка на работу
+n|die Aufgabe|задача
+n|die Meinung|мнение
+n|die Gesellschaft|общество
+n|die Verantwortung|ответственность
+n|die Voraussetzung|условие, предпосылка
+n|die Zukunft|будущее
+n|die Beziehung|отношения
+n|die Entwicklung|развитие
+n|der Vorschlag|предложение (идея)
+n|der Eindruck|впечатление
+n|der Vertrag|договор
+n|der Beruf|профессия
+n|der Unterschied|разница
+n|der Grund|причина
+n|der Einfluss|влияние
+n|der Vorteil|преимущество
+n|der Nachteil|недостаток
+n|das Angebot|предложение (оферта)
+n|das Ergebnis|результат
+n|das Ziel|цель
+n|das Verhältnis|отношение
+n|das Unternehmen|предприятие
+n|das Gespräch|разговор
+n|das Mitglied|член (организации)
+n|das Bedürfnis|потребность
+n|das Ereignis|событие
+v|sich entscheiden|решаться
+v|vermeiden|избегать
+v|erreichen|достигать
+v|verbessern|улучшать
+v|vorschlagen|предлагать (идею)
+v|bedeuten|означать
+v|sich bewerben|подавать заявку
+v|sich beschweren|жаловаться
+v|sich erinnern|вспоминать
+v|verhandeln|вести переговоры
+v|berücksichtigen|учитывать
+v|überzeugen|убеждать
+v|unterstützen|поддерживать
+v|vorbereiten|подготавливать
+v|erledigen|выполнять, уладить
+v|verlangen|требовать
+v|ablehnen|отклонять
+v|zustimmen|соглашаться
+v|behaupten|утверждать
+v|vergleichen|сравнивать
+v|erwähnen|упоминать
+v|anbieten|предлагать (товар, помощь)
+a|zuverlässig|надёжный
+a|anspruchsvoll|требовательный, сложный
+a|gründlich|тщательный
+a|eindeutig|однозначный
+a|vielfältig|разнообразный
+a|wertvoll|ценный
+a|günstig|выгодный, недорогой
+a|erfolgreich|успешный
+a|nützlich|полезный
+a|aktuell|актуальный
+a|ehrlich|честный
+a|bequem|удобный
+a|selbstständig|самостоятельный
+a|verantwortlich|ответственный
+a|zufrieden|довольный
+a|ausreichend|достаточный
+a|offensichtlich|очевидный`.split("\n").map(l=>{const[p,de,ru]=l.split("|");return{p,de,ru}});
+
+const INT=[3e5,864e5,1728e5,3456e5,6912e5,13824e5];
+const load=k=>{try{return JSON.parse(localStorage.getItem(k))||{}}catch(e){return{}}};
+const save=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const st=load("st"),prog=load("pr");
+const pick=a=>a[Math.random()*a.length|0];
+const shuf=a=>{a=a.slice();for(let i=a.length;i>1;i--){const j=Math.random()*i|0;[a[i-1],a[j]]=[a[j],a[i-1]]}return a};
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+const noun=g=>pick(g=="pl"?N:N.filter(n=>n[2]==g));
+const nf=(n,c,g)=>g=="pl"?n[1]+(c=="Dat"&&!/[ns]$/.test(n[1])?"n":""):c=="Gen"&&g!="f"?n[3]:n[0];
+function wk(keys){const w=keys.map(k=>{const[o,b]=st[k]||[0,0];return .5+4*(b+1)/(o+b+2)});let r=Math.random()*w.reduce((a,b)=>a+b,0);for(let i=0;i<keys.length;i++){r-=w[i];if(r<=0)return keys[i]}return keys[0]}
+
+function mkAdj(){
+ const ks=[];for(const t of["weak","mixed","strong"])for(const c of C)for(const g of G)if(!(t=="strong"&&c=="Gen"&&(g=="m"||g=="n")))ks.push(`adj|${t}|${c}|${g}`);
+ const key=wk(ks),[,t,c,g]=key.split("|"),gi=G.indexOf(g),n=noun(g),[a,ar]=pick(A);
+ const art=t=="weak"?DEF[c][gi]:t=="mixed"?EIN[c][gi]:"";
+ const e=E[t][c][gi],ns=nf(n,c,g),f=pick(FR[c]),v=g=="pl"?"sind":"ist";
+ const S=x=>cap(f.replace("{np}",[art,x,ns].filter(Boolean).join(" ")).replace("{v}",v));
+ const o=["-e","-en","-er","-em","-es"],r=G.map((x,i)=>x+" -"+E[t][c][i]).join(", ");
+ const how=t=="strong"?`Артикля нет, поэтому прилагательное само показывает падеж и род: берёт окончание артикля (${DEF[c][gi]} → -${ARTE[DEF[c][gi]]})`+(c=="Gen"&&(g=="m"||g=="n")?". Исключение: в Genitiv m/n вместо -es стоит -en, потому что -s уже есть у существительного":"")
+  :t=="weak"?`Стоит «${art}»: артикль уже показывает падеж и род, поэтому у прилагательного «слабое» окончание. -e бывает только в Nom (m, f, n) и Akk (f, n), везде иначе -en`
+  :art=="ein"?`Стоит «ein» без окончания: он не показывает род, поэтому окончание берёт прилагательное (Nom m -er, Nom/Akk n -es)`
+  :`Стоит «${art}»: артикль уже имеет окончание, поэтому у прилагательного только -e (Nom/Akk f) или -en`;
+ return{key,kind:"g",prompt:S(a+"___"),vocab:`${n[0]} — ${n[4]} · ${a} — ${ar}`,opts:o,ci:o.indexOf("-"+e),cols:5,ans:S(a+e),
+  exp:`<b>Разбор</b>\n1. Падеж: ${FRR[f]}\n2. Существительное: ${gdesc(n,g)}.${nnote(n,c,g,ns)}\n3. ${how}.\n4. Итог: ${c} + ${g} + ${TR[t]} → <b>-${e}</b>.\n\n<b>Для сравнения</b> (${TR[t]}, ${c}): ${r}`,
+  hint:[Q1,`Падеж: ${c}. Род слова «${n[0]}»: ${g}. ${art?`Перед прилагательным стоит «${art}».`:"Артикля нет."}`,`${TR[t]}, ${c}: ${r}.`],
+  why:i=>`Ты выбрал ${o[i]}: ${TR[t]} это окончание бывает в: ${where(t,o[i].slice(1))||"— (в этой схеме не встречается)"}. А здесь ${c} + ${g}, поэтому нужно -${e}.`};
+}
+function mkArt(){
+ const key=wk(C.flatMap(c=>G.map(g=>`art|${c}|${g}`))),[,c,g]=key.split("|"),gi=G.indexOf(g),n=noun(g),ns=nf(n,c,g),f=pick(FR[c]),v=g=="pl"?"sind":"ist",art=DEF[c][gi];
+ const S=x=>cap(f.replace("{np}",x+" "+ns).replace("{v}",v));
+ return{key,kind:"g",prompt:S("___"),vocab:`${n[0]} — ${n[4]}`,opts:SIX,ci:SIX.indexOf(art),cols:3,ans:S(art),
+  exp:`<b>Разбор</b>\n1. Падеж: ${FRR[f]}\n2. Существительное: ${gdesc(n,g)}.${nnote(n,c,g,ns)}\n3. ${c} + ${g} → <b>${art}</b>.\n\n<b>Артикли в ${c}</b>: ${row(c)}`,
+  hint:[Q1,FRR[f][0].toUpperCase()+FRR[f].slice(1),`${c}, род «${n[0]}»: ${g}. Артикли в ${c}: ${row(c)}.`],
+  why:i=>`Ты выбрал «${SIX[i]}»: так выглядит артикль в ${whereA(SIX[i])}. Здесь ${c} + ${g}, то есть «${art}».`};
+}
+function mkPrep(){
+ const key=wk(Object.keys(PR).map(p=>"prep|"+p)),p=key.split("|")[1],k=PR[p];
+ let c=k,fr,hs,rule;
+ if(k=="W"){const w=Math.random()<.5;c=w?"Akk":"Dat";fr=w?"Er geht {p} {np}.":"Er wartet {p} {np}.";
+  hs=["Это Wechselpräposition (in, an, auf, über, unter, vor, hinter, neben). Спроси: куда? (движение) → Akk, где? (место) → Dat.",w?"«Er geht» — движение, вопрос «куда?» → Akk.":"«Er wartet» — стоит на месте, вопрос «где?» → Dat."];
+  rule=`${p} — Wechselpräposition: на вопрос «куда?» (движение, цель) идёт Akk, на вопрос «где?» (место) — Dat. «${w?"Er geht":"Er wartet"}» — ${w?"это движение, значит Akk":"это нахождение на месте, значит Dat"}.`}
+ else{fr=c=="Gen"?"Das passiert {p} {np}.":"Ich mache das {p} {np}.";
+  hs=[`Предлог всегда требует одного и того же падежа. Akk: ${grp("Akk")}. Dat: ${grp("Dat")}. Gen: ${grp("Gen")}.`,`${p} + ${c}.`];
+  rule=`${p} всегда требует ${c}, это нужно запомнить (Akk: ${grp("Akk")}; Dat: ${grp("Dat")}; Gen: ${grp("Gen")}).`}
+ const g=pick(G),gi=G.indexOf(g),n=noun(g),ns=nf(n,c,g),art=DEF[c][gi],ct=CT[p+" "+art];
+ hs.push(`Род слова «${n[0]}»: ${g}. Артикли в ${c}: ${row(c)}.`);
+ const S=x=>fr.replace("{p}",p).replace("{np}",x+" "+ns);
+ return{key,kind:"g",prompt:S("___"),vocab:`${n[0]} — ${n[4]}`,opts:SIX,ci:SIX.indexOf(art),cols:3,ans:S(art),hint:hs,
+  exp:`<b>Разбор</b>\n1. ${rule}\n2. Существительное: ${gdesc(n,g)}.${nnote(n,c,g,ns)}\n3. ${c} + ${g} → <b>${art}</b>.${ct?` В живой речи ${p} ${art} обычно сливается: <b>${ct}</b>.`:""}\n\n<b>Артикли в ${c}</b>: ${row(c)}`,
+  why:i=>`Ты выбрал «${SIX[i]}»: так выглядит артикль в ${whereA(SIX[i])}. Здесь нужен ${c} + ${g}, то есть «${art}».`};
+}
+function mkVocab(L){L=L||W;
+ const now=Date.now(),pr=x=>prog[x.de];
+ const due=L.filter(x=>pr(x)&&pr(x)[1]<=now).sort((a,b)=>pr(a)[1]-pr(b)[1]),nw=L.filter(x=>!pr(x));
+ const w=due.length&&(!nw.length||Math.random()<.6)?pick(due.slice(0,5)):nw.length?pick(nw):L.slice().sort((a,b)=>pr(a)[1]-pr(b)[1])[0];
+ const m=pick(w.p=="n"?["d","r","g"]:["d","r"]),same=L.filter(x=>x.p==w.p&&x.de!=w.de);
+ if(new Set(same.map(x=>x.ru)).size<4||new Set(same.map(x=>x.de)).size<4)same.push(...W.filter(x=>(w.p=='x'||x.p==w.p)&&x.de!=w.de));
+ const mk=(c,f)=>shuf([c,...shuf([...new Set(same.map(f))].filter(x=>x!=c)).slice(0,3)]);
+ const POS={n:"существительное",v:"глагол",a:"прилагательное",x:"слово из твоего списка"},all=W.concat(L);
+ const bare=w.de.replace(/^(der|die|das) /,""),art=w.de.split(" ")[0];
+ const rule=/(ung|heit|keit|schaft)$/.test(bare)?"Слова на -ung, -heit, -keit, -schaft почти всегда женского рода: die.":/nis$/.test(bare)?"Слова на -nis чаще всего среднего рода: das (есть исключения).":"Для этого слова нет надёжного правила по окончанию, учи его сразу с артиклем.";
+ let prompt,opts,ci,cols=1,hs,why;
+ if(m=="d"){opts=mk(w.ru,x=>x.ru);ci=opts.indexOf(w.ru);prompt=`Что значит ${w.de}?`;hs=[`Это ${POS[w.p]}.`,`Перевод начинается на «${w.ru.slice(0,2)}…».`];
+  why=i=>{const x=all.find(y=>y.ru==opts[i]);return x?`Ты выбрал «${opts[i]}»: это перевод слова «${x.de}», а не «${w.de}».`:""}}
+ else if(m=="r"){opts=mk(w.de,x=>x.de);ci=opts.indexOf(w.de);prompt=`Как по-немецки: ${w.ru}?`;hs=[`Это ${POS[w.p]}${w.p=="n"?`, артикль: ${art}`:""}.`,`Слово начинается на «${bare.slice(0,2)}…».`];
+  why=i=>{const x=all.find(y=>y.de==opts[i]);return x?`Ты выбрал «${opts[i]}»: это «${x.ru}». А «${w.ru}» по-немецки — «${w.de}».`:""}}
+ else{opts=["der","die","das"];ci=opts.indexOf(art);cols=3;prompt=`Какой артикль у слова ${bare}?`;hs=["Посмотри на окончание слова и вспомни похожие слова.",rule];
+  why=i=>`Ты выбрал «${opts[i]}», но у слова ${bare} артикль «${art}».`}
+ const exp=[`<b>${w.de}</b> — ${w.ru}`,w.p=="n"?`Род: ${{der:"мужской",die:"женский",das:"средний"}[art]}. ${rule}\nУчи существительные сразу с артиклем и формой множественного числа.`:w.de.startsWith("sich ")?"Возвратный глагол: sich меняется по лицам (ich … mich, du … dich, er … sich).":""].filter(Boolean).join("\n");
+ return{key:w.de,kind:"v",prompt,vocab:m=="g"?w.ru:"",opts,ci,cols,ans:`${w.de} — ${w.ru}`,exp,hint:hs,why};
+}
+const SP=[{x:`Sehr geehrte Damen und Herren,<br>ich habe vor drei Wochen einen Schrank bei Ihnen {1} und bis heute nichts bekommen. In Ihrer Bestätigung stand, {2} die Lieferung innerhalb von zehn Tagen erfolgt. {3} habe ich mehrmals bei Ihrem Kundenservice angerufen, aber niemand konnte mir helfen. Ich bin sehr enttäuscht, {4} ich mich auf Ihre Angaben verlassen habe. {5} Sie mir bitte bis Freitag einen neuen Liefertermin nennen? Falls das nicht möglich ist, werde ich vom Vertrag {6}.<br>Mit freundlichen Grüßen`,
+g:[["bestellt","bestellen","bestellte","Perfekt: haben + Partizip II (bestellt)."],["dass","ob","weil","stand, dass …: Nebensatz с dass, глагол в конце."],["Deshalb","Trotzdem","Obwohl","Deshalb = поэтому (следствие), сразу после него глагол."],["weil","obwohl","damit","weil = потому что: причина разочарования."],["Könnten","Konnten","Könntest","Вежливая просьба: Könnten Sie …? (Konjunktiv II)."],["zurücktreten","zurückgetreten","zurücktrete","werden + Infinitiv: werde … zurücktreten."]]},
+{x:`Liebe Frau Weber,<br>vielen Dank für {1} Einladung zur Besichtigung. Leider kann ich am Samstag nicht kommen, {2} ich an diesem Tag arbeiten muss. {3} es möglich wäre, würde ich gern am Montag nach der Arbeit vorbeikommen. Ich interessiere mich sehr {4} die Wohnung, besonders wegen der hell{5} Küche. Könnten Sie mir außerdem sagen, wie hoch die Kaution {6}? {7} Ihre Antwort bedanke ich mich im Voraus.<br>Viele Grüße`,
+g:[["Ihre","Ihrer","Ihren","Einladung — f, Akk после für → Ihre."],["weil","denn","deshalb","Глагол muss в конце — это придаточное с weil (после denn порядок прямой)."],["Falls","Obwohl","Damit","Falls = если (условие), далее Konjunktiv II."],["für","an","auf","sich interessieren für + Akk."],["en","e","er","wegen + Gen: der hellen Küche (после артикля -en)."],["ist","sind","hat","Косвенный вопрос: wie hoch die Kaution ist."],["Für","Über","Auf","sich bedanken für + Akk."]]}];
+const LT=[{x:"Immer mehr Unternehmen bieten ihren Mitarbeitern an, mehrere Tage pro Woche von zu Hause aus zu arbeiten. Befürworter betonen, dass man dadurch Zeit für den Arbeitsweg spart und Familie und Beruf besser verbinden kann. Kritiker weisen jedoch darauf hin, dass der persönliche Kontakt zu den Kollegen leidet und Mitarbeiter schwerer abschalten können. Eine aktuelle Studie zeigt: Wer zwei bis drei Tage zu Hause arbeitet, ist am zufriedensten. Wer dagegen ausschließlich im Homeoffice arbeitet, fühlt sich häufiger isoliert.",
+q:[["Durch Homeoffice spart man Zeit für den Arbeitsweg.",true,"Befürworter nennen genau das: Zeit für den Arbeitsweg sparen."],["Kritiker sagen, dass man im Homeoffice leichter abschalten kann.",false,"Im Text: Mitarbeiter können schwerer abschalten."],["Laut der Studie sind Mitarbeiter am zufriedensten, wenn sie jeden Tag zu Hause arbeiten.",false,"Am zufriedensten sind die, die zwei bis drei Tage zu Hause arbeiten."],["Wer nur im Homeoffice arbeitet, fühlt sich öfter isoliert.",true,"Im Text: fühlt sich häufiger isoliert."]]},
+{x:"Die Suche nach einer Mietwohnung ist in vielen deutschen Großstädten schwierig geworden. Auf eine Anzeige melden sich oft Dutzende Interessenten. Vermieter verlangen meist einen Gehaltsnachweis und eine Bescheinigung der letzten Mietzahlungen. Außerdem muss man in der Regel eine Kaution von bis zu drei Monatsmieten zahlen. Wer umzieht, muss sich innerhalb von zwei Wochen beim Einwohnermeldeamt ummelden.",
+q:[["Auf eine Wohnungsanzeige melden sich oft nur wenige Interessenten.",false,"Im Text: oft Dutzende Interessenten."],["Vermieter wollen meistens einen Nachweis über das Einkommen sehen.",true,"Gehaltsnachweis = Nachweis über das Einkommen."],["Die Kaution beträgt höchstens drei Monatsmieten.",true,"bis zu drei Monatsmieten = höchstens drei."],["Nach einem Umzug muss man sich innerhalb eines Monats ummelden.",false,"Im Text: innerhalb von zwei Wochen."]]}];
+const WG=[["___ möchte ich mich über die Qualität Ihres Produkts beschweren.","Hiermit,Darum,Außerdem","Hiermit = «настоящим»: типичное начало формального письма."],
+["Ich ___ Sie, den Fehler schnellstmöglich zu beheben.","bitte,bete,frage","Ich bitte Sie, … zu + Infinitiv: формальная просьба."],
+["Leider musste ich ___, dass das Gerät nach zwei Tagen kaputtging.","feststellen,feststellt,festgestellt","Модальный глагол + Infinitiv: musste feststellen."],
+["Ich bedanke mich ___ Ihre schnelle Antwort.","für,über,auf","sich bedanken für + Akk."],
+["Ich würde mich freuen, ___ Sie mir bis nächste Woche antworten könnten.","wenn,ob,weil","würde mich freuen, wenn … könnten: вежливое пожелание (Konjunktiv II)."],
+["Ich hoffe auf eine baldige Antwort und verbleibe ___ freundlichen Grüßen.","mit,für,bei","Mit freundlichen Grüßen: формула завершения."],
+["Falls Sie Fragen haben, ___ Sie mich bitte unter der angegebenen Nummer an.","rufen,ruft,anrufen","Отделяемая приставка: rufen Sie … an."],
+["Sehr ___ Damen und Herren,","geehrte,geehrten,geehrter","Nom. plural без артикля → -e: Sehr geehrte Damen und Herren."],
+["Das Produkt ist defekt, ___ verlange ich eine Erstattung.","deshalb,trotzdem,denn","deshalb = поэтому, сразу после него глагол."],
+["Ich ___ mich auf Ihre Antwort.","freue,freut,freuen","sich freuen auf: Ich freue mich."]];
+const WF=[["Ich schreibe Ihnen wegen meiner Bestellung vom 5. November.","Anlass nennen"],["Leider war das Gerät bei der Lieferung beschädigt.","Beschwerde"],["Könnten Sie mir bitte einen Ersatz zusenden?","Bitte / Forderung"],["Ich freue mich auf Ihre baldige Antwort.","Schluss"],["Mit der Qualität bin ich äußerst unzufrieden.","Beschwerde"],["Ich bitte Sie, mir den Betrag zu erstatten.","Bitte / Forderung"],["Mit freundlichen Grüßen","Schluss"],["Bezugnehmend auf Ihre Anzeige vom 3. November möchte ich mich bei Ihnen bewerben.","Anlass nennen"]];
+const FO=["Anlass nennen","Beschwerde","Bitte / Forderung","Schluss"];
+const SPX=[["Перфект = haben + Partizip II: «habe … bestellt». У глаголов с приставкой be- в причастии нет ge-. Инфинитив «bestellen» и Präteritum «bestellte» после «habe» не употребляются.",
+"После «stand» (в подтверждении было написано) идёт придаточное с «dass»: «stand, dass die Lieferung … erfolgt», глагол в конце. «ob» значит «ли», «weil» даёт причину, а здесь нужно содержание написанного.",
+"«Deshalb» = поэтому: товар не пришёл, поэтому я звонил. После deshalb глагол на втором месте: «Deshalb habe ich». «Trotzdem» значит «несмотря на это», а «obwohl» требует глагол в конце.",
+"«weil» вводит причину: разочарован, потому что полагался на данные. После weil глагол в конце: «weil ich mich … verlassen habe». «obwohl» (хотя) противоречит смыслу, «damit» выражает цель.",
+"Вежливая просьба: «Könnten Sie mir bitte …?», Konjunktiv II от können. «Konnten» — Präteritum («смогли»), «Könntest» — форма для «du», а здесь обращение на «Sie».",
+"werden + Infinitiv образует Futur I: «werde … zurücktreten». «zurückgetreten» — Partizip II и требует вспомогательного (bin zurückgetreten), а «zurücktrete» после «werde» не нужна: инфинитив уходит в конец."],
+["«Einladung» — женский род, после «für» стоит Akkusativ: «für Ihre Einladung». «Ihrer» — форма Dativ/Genitiv f, «Ihren» — Akk m или Dat pl.",
+"«…, weil ich … arbeiten muss»: глагол «muss» в конце, значит придаточное с weil. «denn» требует прямого порядка слов («denn ich muss arbeiten»), а «deshalb» — глагола сразу после себя.",
+"«Falls es möglich wäre, würde ich …» — условие («если бы»). «Falls» вводит придаточное с глаголом в конце, дальше идёт Konjunktiv II. «Obwohl» (хотя) и «damit» (чтобы) по смыслу не подходят.",
+"Глагол «sich interessieren» требует «für» + Akkusativ: «Ich interessiere mich für die Wohnung». С «an» или «auf» он не употребляется.",
+"После «wegen» стоит Genitiv: «wegen der hellen Küche». Перед прилагательным артикль «der», поэтому окончание «-en». «-e» было бы в Nom/Akk, «-er» — без артикля.",
+"Косвенный вопрос «wie hoch die Kaution ist»: глагол в конце. «Kaution» в единственном числе, значит «ist», а не «sind»; «hat» (имеет) по смыслу не подходит.",
+"Выражение «sich bedanken für + Akkusativ»: «Für Ihre Antwort bedanke ich mich». С «über» и «auf» этот глагол не употребляется. Предложение начинается с «Für», поэтому глагол на втором месте."]];
+const LTX=[["Верно. Сторонники (Befürworter) называют именно это: «Zeit für den Arbeitsweg spart» — экономия времени на дорогу.",
+"Неверно. Критики говорят наоборот: «Mitarbeiter können schwerer abschalten» — отключиться от работы труднее. В утверждении смысл перевёрнут.",
+"Неверно. Самыми довольными названы те, кто работает два-три дня дома («zwei bis drei Tage»), а не каждый день. Слова «jeden Tag» противоречат тексту.",
+"Верно. В тексте: «ausschließlich im Homeoffice … fühlt sich häufiger isoliert». «nur» = «ausschließlich», «öfter» = «häufiger»."],
+["Неверно. В тексте «melden sich oft Dutzende Interessenten» — десятки, а не «nur wenige».",
+"Верно. «Gehaltsnachweis» — это подтверждение дохода, то есть «Nachweis über das Einkommen».",
+"Верно. «bis zu drei Monatsmieten» значит «максимум три» — то же, что «höchstens drei».",
+"Неверно. В тексте срок «innerhalb von zwei Wochen», а не месяц."]];
+const WGX=["«Hiermit» — «настоящим»: стандартное начало формального письма. «Darum» (поэтому) и «Außerdem» (кроме того) нужны, когда уже было сказано что-то раньше.",
+"«Ich bitte Sie, … zu + Infinitiv» — формальная просьба. «bete» значит «молюсь», «frage» — «спрашиваю»: смысл не тот.",
+"После модального глагола «musste» идёт инфинитив: «musste feststellen». «feststellt» — личная форма, «festgestellt» — причастие, обе здесь не подходят.",
+"Глагол «sich bedanken» всегда с предлогом «für»: «bedanke mich für Ihre Antwort». С «über» и «auf» так не говорят.",
+"«Ich würde mich freuen, wenn Sie … könnten» — вежливая формула с условным придаточным (Konjunktiv II). «ob» значит «ли», «weil» — «потому что», по смыслу не подходят.",
+"Устойчивая формула прощания: «Mit freundlichen Grüßen». После «mit» стоит Dativ plural, поэтому «freundlichen». «für» и «bei» здесь не употребляются.",
+"Приставочный глагол «anrufen» в вежливой просьбе разделяется: «rufen Sie mich … an». Спрягаемая часть «rufen» идёт первой, приставка «an» уходит в конец.",
+"«Sehr geehrte Damen und Herren» — Nominativ plural без артикля, окончание «-e». «geehrten» — Dativ/Genitiv, «geehrter» — Nominativ m.",
+"«deshalb» = поэтому: товар с дефектом, поэтому требую возврат денег. После deshalb глагол на втором месте: «deshalb verlange ich». «trotzdem» значит «несмотря на это», «denn» требует прямого порядка слов.",
+"«sich freuen auf» — ждать с радостью: «Ich freue mich auf Ihre Antwort». «freue» — 1-е лицо ед. числа; «freut» — er/sie, «freuen» — wir/sie."];
+const FOX={"Anlass nennen":"В начале формального письма сразу называют повод: «Ich schreibe Ihnen wegen …», «Bezugnehmend auf …». Такая фраза отвечает на вопрос «зачем я пишу?».",
+"Beschwerde":"Здесь описывается проблема или недовольство: «leider», «unzufrieden», «beschädigt», «defekt». Тон вежливый, но факты называются прямо.",
+"Bitte / Forderung":"Фраза просит или требует действия: «Könnten Sie …?», «Ich bitte Sie, …». Для вежливости часто используют Konjunktiv II.",
+"Schluss":"Конец письма: ожидание ответа («Ich freue mich auf Ihre Antwort») и формула прощания «Mit freundlichen Grüßen»."};
+let sp=null,lp=null;
+function mkSprach(){
+ if(!sp||sp.i>=sp.t.g.length)sp={t:pick(SP),i:0,res:[]};
+ const t=sp.t,i0=sp.i,[c,w1,w2,e]=t.g[i0],opts=shuf([c,w1,w2]);
+ const ctx=()=>t.x.replace(/\{(\d+)\}/g,(m,n)=>{const k=n-1;return k<i0?`<u class="${sp.res[k]?"ok":"bad"}">${t.g[k][0]}</u>`:k==i0?(answered==null?"<b>[ ____ ]</b>":`<u class="${answered==ex.ci?"ok":"bad"}">${c}</u>`):`(${n})`});
+ const after=ok=>{sp.res[i0]=ok;sp.i=i0+1;if(sp.i==t.g.length)ex.exp+=`\n\nТекст завершён: ${sp.res.filter(Boolean).length} из ${t.g.length}`};
+ return{key:"b2|sprach",kind:"g",ctx,prompt:`Lücke (${i0+1})`,vocab:"",opts,ci:opts.indexOf(c),cols:1,ans:`${i0+1}: ${c}`,exp:SPX[SP.indexOf(t)][i0],hint:["Определи, какая часть речи или форма нужна: прочитай слово до пропуска и после него.","Проверь три вещи: согласование (падеж, число, время), порядок слов (глагол в конце после dass, weil, falls) и смысл."],after};
+}
+function mkLesen(){
+ if(!lp||lp.i>=lp.t.q.length)lp={t:pick(LT),i:0,n:0};
+ const t=lp.t,i0=lp.i,[s,tr,e]=t.q[i0];
+ const after=ok=>{lp.i=i0+1;if(ok)lp.n++;if(lp.i==t.q.length)ex.exp+=`\n\nТекст завершён: ${lp.n} из ${t.q.length}`};
+ return{key:"b2|lesen",kind:"g",ctx:()=>t.x,prompt:s,vocab:`Aussage ${i0+1} von ${t.q.length}`,opts:["Richtig","Falsch"],ci:tr?0:1,cols:2,ans:tr?"Richtig":"Falsch",exp:LTX[LT.indexOf(t)][i0],hint:["Найди в тексте предложение, где говорится об этом, и сравни по смыслу, а не по словам.","Слова-сигналы: nur, immer, jeder, ausschließlich, höchstens — они часто делают утверждение неверным. Проверь и числа."],after};
+}
+function mkWrite(){
+ if(Math.random()<.5){const wi=Math.random()*WG.length|0,[s,o,e]=WG[wi],op=o.split(","),opts=shuf(op);return{key:"b2|schreiben",kind:"g",prompt:s,vocab:"",opts,ci:opts.indexOf(op[0]),cols:1,ans:s.replace("___",op[0]),exp:WGX[wi],hint:["Это формальное письмо: нужны вежливые стандартные формулы и точная грамматика.","Проверь, какой падеж, предлог или порядок слов требуется рядом с пропуском. Формулы вроде «Mit freundlichen Grüßen» учатся целиком."]}}
+ const[s,f]=pick(WF);return{key:"b2|schreiben",kind:"g",prompt:s,vocab:"Какую функцию выполняет фраза в письме?",opts:FO,ci:FO.indexOf(f),cols:2,ans:`${s} → ${f}`,exp:FOX[f],hint:["Подумай, где в письме стоит такая фраза: в начале, в жалобе, в просьбе или в конце.","Ключевые слова: «schreibe Ihnen wegen / Bezugnehmend» — повод; «leider / unzufrieden / beschädigt» — жалоба; «Könnten Sie / Ich bitte Sie» — просьба; «freue mich / Grüßen» — конец."]};
+}
+const btn=f=>Object.entries(M).filter(([k])=>"slw".includes(k)==!!f).map(([k,v])=>`<button data-m="${k}">${v[0]}</button>`).join("");
+const CYR=/[а-яёіїєґ]/i,LAT=/[a-zäöüß]/i,ART=["der","die","das"],BUL=/^\s*(?:[•*·▪✅☑\-–—]+|\d+[.)])\s*/;
+const split2=l=>{for(const r of[/\s+[-–—]\s+/,/\s*(?:->|→|=>|=|:|\t)\s*/]){const m=r.exec(l);if(m&&m.index>0){const a=l.slice(0,m.index).trim(),b=l.slice(m.index+m[0].length).trim();if(a&&b)return[a,b]}}
+ let i=l.search(CYR);if(i>0&&LAT.test(l.slice(0,i)))return[l.slice(0,i).trim(),l.slice(i).trim()];
+ i=l.search(LAT);if(i>0&&CYR.test(l.slice(0,i)))return[l.slice(i).trim(),l.slice(0,i).trim()];return null};
+function pw(t){const o=[];for(const raw of(t||"").split("\n")){const l=raw.replace(BUL,"").trim();if(!l||l[0]=="#")continue;const q=split2(l);if(!q)continue;let[a,b]=q;if(CYR.test(a)&&!CYR.test(b))[a,b]=[b,a];
+ let de=a.replace(/\s*\(.*?\)/g,"").replace(/\s+/g," ").trim();const w=de.split(" ");if(w.length>1&&ART.includes(w[0].toLowerCase()))de=w[0].toLowerCase()+" "+w.slice(1).join(" ");
+ if(CYR.test(de)||!LAT.test(de)||!CYR.test(b))continue;o.push({p:w.length>1&&ART.includes(de.split(" ")[0])?"n":"x",de,ru:b})}return o}
+let CH="";
+const mine=()=>{let m="";try{m=localStorage.getItem("mw")||""}catch(e){}const u=new Map();for(const w of pw(CH+"\n"+m))u.set(w.de.toLowerCase(),w);return[...u.values()]};
+async function loadCh(){const u=location.hostname.split(".")[0],r=location.pathname.split("/")[1];
+ for(const url of[`https://raw.githubusercontent.com/${u}/${r}/main/words.txt`,"words.txt"]){try{const x=await fetch(url,{cache:"no-store"});if(x.ok){CH=await x.text();return}}catch(e){}}}
+function imp(msg){app.innerHTML=`<div class="bar"><button data-a="menu">← Меню</button></div><h1>Мои слова</h1><small>${msg||"Слова из канала подтягиваются сами. Здесь можно добавить вручную."}</small><p>Сейчас слов: ${mine().length}</p><textarea id="ta" rows="8" placeholder="der Vorschlag - предложение"></textarea><button class="go" data-a="save">Сохранить</button>`}
+const PE=["ich","du","er","wir","ihr","sie"],TN=["Präsens","Präteritum","Perfekt","Plusquamperfekt","Futur I"];
+const TH=["habe","hast","hat","haben","habt","haben"],TS=["bin","bist","ist","sind","seid","sind"],THP=["hatte","hattest","hatte","hatten","hattet","hatten"],TSP=["war","warst","war","waren","wart","waren"],TW=["werde","wirst","wird","werden","werdet","werden"];
+const IRR={sein:["bin","bist","ist","sind","seid","sind"],haben:TH,wissen:["weiß","weißt","weiß","wissen","wisst","wissen"]};
+const VB=`machen|делать|w|machte|gemacht|h|die Hausaufgaben
+spielen|играть|w|spielte|gespielt|h|Fußball
+kaufen|покупать|w|kaufte|gekauft|h|ein Auto
+lernen|учить|w|lernte|gelernt|h|Deutsch
+wohnen|жить|w|wohnte|gewohnt|h|in Köln
+besuchen|посещать|w|besuchte|besucht|h|die Großeltern
+erklären|объяснять|w|erklärte|erklärt|h|die Regel
+arbeiten|работать|w|arbeitete|gearbeitet|h|viel
+warten|ждать|w|wartete|gewartet|h|auf den Bus
+reisen|путешествовать|w|reiste|gereist|s|nach Italien
+suchen|искать|w|suchte|gesucht|h|den Schlüssel
+brauchen|нуждаться|w|brauchte|gebraucht|h|Hilfe
+fragen|спрашивать|w|fragte|gefragt|h|den Lehrer
+hören|слушать|w|hörte|gehört|h|Musik
+bringen|приносить|m|brachte|gebracht|h|den Kuchen
+denken|думать|m|dachte|gedacht|h|an die Prüfung
+wissen|знать|m|wusste|gewusst|h|die Antwort
+haben|иметь|m|hatte|gehabt|h|Zeit
+sein|быть|s|war|gewesen|s|zu Hause
+gehen|идти|s|ging|gegangen|s|nach Hause
+kommen|приходить|s|kam|gekommen|s|pünktlich
+fahren|ехать|s|fuhr|gefahren|s|nach Berlin|fährst,fährt
+laufen|бежать|s|lief|gelaufen|s|im Park|läufst,läuft
+bleiben|оставаться|s|blieb|geblieben|s|zu Hause
+schwimmen|плыть|s|schwamm|geschwommen|s|ans andere Ufer
+fliegen|лететь|s|flog|geflogen|s|nach Wien
+schlafen|спать|s|schlief|geschlafen|h|lange|schläfst,schläft
+sehen|видеть|s|sah|gesehen|h|einen Film|siehst,sieht
+lesen|читать|s|las|gelesen|h|ein Buch|liest,liest
+essen|есть|s|aß|gegessen|h|eine Pizza|isst,isst
+trinken|пить|s|trank|getrunken|h|einen Kaffee
+geben|давать|s|gab|gegeben|h|ihm das Buch|gibst,gibt
+nehmen|брать|s|nahm|genommen|h|den Bus|nimmst,nimmt
+sprechen|говорить|s|sprach|gesprochen|h|mit dem Chef|sprichst,spricht
+helfen|помогать|s|half|geholfen|h|dem Nachbarn|hilfst,hilft
+treffen|встречать|s|traf|getroffen|h|einen Freund|triffst,trifft
+schreiben|писать|s|schrieb|geschrieben|h|eine E-Mail
+finden|находить|s|fand|gefunden|h|die Lösung
+verstehen|понимать|s|verstand|verstanden|h|die Frage
+bekommen|получать|s|bekam|bekommen|h|einen Brief
+vergessen|забывать|s|vergaß|vergessen|h|den Termin|vergisst,vergisst
+beginnen|начинать|s|begann|begonnen|h|den Kurs`.split("\n").map(l=>{const[inf,ru,k,pt,pp,ax,ob,pd]=l.split("|");return{inf,ru,k,pt,pp,ax,ob,pd:pd?pd.split(","):null}});
+const stem=i=>i.endsWith("en")?i.slice(0,-2):i.slice(0,-1);
+const presF=v=>{if(IRR[v.inf])return IRR[v.inf];const s=stem(v.inf),te=/[td]$/.test(s),sb=/[sßzx]$/.test(s);let du=s+(te?"est":sb?"t":"st"),er=s+(te?"et":"t");if(v.pd)[du,er]=v.pd;return[s+"e",du,er,v.inf,s+(te?"et":"t"),v.inf]};
+const pretF=v=>{const b=v.pt;if(v.k!="s")return[b,b+"st",b,b+"n",b+"t",b+"n"];const te=/[td]$/.test(b),sb=/[sßzx]$/.test(b);return[b,b+(te?"est":sb?"t":"st"),b,b+"en",b+(te?"et":"t"),b+"en"]};
+const vg=(v,t,i,ax)=>{ax=ax||v.ax;return t==0?[presF(v)[i],""]:t==1?[pretF(v)[i],""]:t==2?[(ax=="s"?TS:TH)[i],v.pp]:t==3?[(ax=="s"?TSP:THP)[i],v.pp]:[TW[i],v.inf]};
+const gt=(v,t,i,ax)=>vg(v,t,i,ax).join(" ").trim();
+const CU=[["Heute","Jetzt","Jeden Tag"],["Damals","Früher","Letztes Jahr"],["Gestern","Letzte Woche","Vorhin"],["Schon vorher","Davor"],["Morgen","Nächste Woche","Bald"]];
+const FM=["основа + окончание","одна форма: -te или изменённый корень","haben/sein + Partizip II","hatte/war + Partizip II","werden + Infinitiv"];
+const TRL=["Präsens: основа + окончание (-e, -st, -t, -en, -t, -en). Так говорят о том, что происходит сейчас или регулярно.","Präteritum: рассказ о прошлом, чаще в письме. Слабые глаголы получают -te (machen → machte), сильные меняют корень (fahren → fuhr). В разговоре его обычно используют только для sein, haben и модальных.","Perfekt: haben/sein на втором месте + Partizip II в конце. Так обычно говорят о прошлом в разговоре.","Plusquamperfekt: hatte/war на втором месте + Partizip II в конце. Действие произошло раньше другого прошлого действия.","Futur I: werden на втором месте + Infinitiv в конце. Планы, обещания, предположения."];
+const IDT=["одна форма глагола без вспомогательного (fahre, fährst).","одна форма прошедшего без вспомогательного (fuhr, machte).","haben/sein в Präsens + Partizip II в конце (bin gefahren, habe gemacht).","hatte/war + Partizip II в конце (war gefahren, hatte gemacht).","werden + Infinitiv в конце (werde fahren)."];
+const sn=(cue,pr,fin,ob,tail)=>cap(`${cue?cue+" "+fin+" "+pr:pr+" "+fin} ${[ob,tail].filter(Boolean).join(" ")}`.replace(/\s+/g," ").trim())+".";
+function mkTense(){
+ const ks=[];TN.forEach((T,t)=>{["reg","irr"].concat(t==2||t==3?["sein"]:[]).forEach(c=>ks.push(`tense|${t}|${c}`));ks.push(`tense|${t}|id`)});
+ const key=wk(ks),[,ts,cat]=key.split("|"),t=+ts,i=Math.random()*6|0,pr=PE[i];
+ const vc=v=>t>=2&&t<=3&&v.ax=="s"?"sein":v.k=="w"?"reg":"irr";
+ const v=pick(cat=="id"?VB:VB.filter(x=>vc(x)==cat)),fin=vg(v,t,i),all=gt(v,t,i),cue=pick(CU[t]);
+ const par=PE.map((q,j)=>`${q} ${gt(v,t,j)}`).join(" · "),full=sn(cue,pr,fin[0],v.ob,fin[1]);
+ if(cat=="id"){const sen=sn(Math.random()<.5?cue:"",pr,fin[0],v.ob,fin[1]);
+  return{key,kind:"g",prompt:sen,vocab:`Какое это время? · ${v.inf} — ${v.ru}`,opts:TN,ci:t,cols:2,ans:`${sen} → ${TN[t]}`,
+   exp:`<b>${TN[t]}</b>: ${IDT[t]}\n\n<b>Все формы</b>: ${par}`,
+   hint:["Посмотри на глагол: из скольких частей он состоит и где эти части стоят.","Одна форма — Präsens или Präteritum. Если есть haben/sein/werden и в конце причастие или инфинитив — составное время."],
+   why:q=>`Если бы это был ${TN[q]}, форма выглядела бы так: «${gt(v,q,i)}». Здесь же «${all}» — это ${TN[t]}.`}}
+ const oth=v.ax=="s"?"h":"s",cand=[];
+ if(t==2||t==3)cand.push(gt(v,t,i,oth));
+ if(t==2&&v.k=="s"&&v.inf!="sein")cand.push(fin[0]+" ge"+stem(v.inf)+"t");
+ cand.push(...shuf([0,1,2,3,4].filter(x=>x!=t).map(x=>gt(v,x,i))));
+ const opts=shuf([all,...[...new Set(cand)].filter(x=>x!=all).slice(0,3)]);
+ const ppn=!/^ge/.test(v.pp)?`У глаголов с неотделяемой приставкой причастие без ge-: ${v.pp}`:v.k=="w"?`слабый глагол: ge- + основа + -t (${v.pp})`:v.k=="m"?`смешанный глагол: ge- + изменённый корень + -t (${v.pp})`:`сильный глагол: ge- + корень + -en, форму нужно знать (${v.pp})`;
+ const vn=t==2||t==3?(v.inf=="sein"||v.inf=="haben"?`${v.inf} в разговоре чаще стоит в Präteritum (war, hatte), но Perfekt тоже правилен. `:"")+(v.ax=="s"?`${v.inf} образует прошедшее с sein: движение или смена состояния.`:`${v.inf} образует прошедшее с haben.`)+` Partizip II: ${ppn}.`
+  :t==1?(v.k=="s"?`${v.inf} — сильный или неправильный глагол: меняется корень (${v.pt}).`:v.k=="m"?`${v.inf} — смешанный глагол: меняется корень и добавляется -te (${v.pt}).`:`${v.inf} — слабый глагол: основа + -te (${v.pt}).`)
+  :t==0?(v.pd||IRR[v.inf]?`У этого глагола форма меняется: ${presF(v).slice(0,3).join(", ")}.`:`Обычное спряжение: основа + окончание.`):`Инфинитив ${v.inf} уходит в конец предложения.`;
+ return{key,kind:"g",prompt:sn(cue,pr,"___",v.ob,""),vocab:`${TN[t]} · ${v.inf} — ${v.ru}`,opts,ci:opts.indexOf(all),cols:2,ans:full,
+  exp:`<b>Разбор</b>\n1. ${TRL[t]}\n2. Лицо: ${pr}. ${vn}\n3. Итог: <b>${all}</b>.${fin[1]?` Спрягаемая часть стоит на втором месте, а «${fin[1]}» уходит в конец предложения.`:""}\n\n<b>Все формы</b> (${TN[t]}): ${par}`,
+  hint:[`Нужно время ${TN[t]}: ${FM[t]}.`,vn,`Форма начинается на «${all.slice(0,3)}…».`],
+  why:o=>{for(let q=0;q<5;q++)if(gt(v,q,i)==o)return`«${o}» — это ${TN[q]}, а нужно ${TN[t]}.`;if(o==gt(v,t,i,oth))return`${v.inf} образует прошедшее с ${v.ax=="s"?"sein":"haben"}, а не с ${v.ax=="s"?"haben":"sein"}.`;return`Форма «${o}» неверна: у ${v.inf} причастие — ${v.pp}.`}};
+}
+const M={v:["Слова B1–B2",()=>mkVocab()],t:["⏱ Времена",()=>mkTense()],m:["⭐ Мои слова",()=>{const L=mine();return L.length?mkVocab(L):null}],a:["Прилагательные",mkAdj],r:["Артикли",mkArt],p:["Предлоги",mkPrep],x:["Микс грамматики",()=>pick([mkAdj,mkArt,mkPrep,mkTense])()],s:["Sprachbausteine (a/b/c)",mkSprach],l:["Lesen: richtig / falsch",mkLesen],w:["Schreiben: формулы для e-mail",mkWrite]};
+const app=document.getElementById("app");
+let mode,ex,answered=null,hl=0;
+const pk=k=>{const p=k.split("|");if(p[0]=="tense")return"Времена: "+TN[p[1]]+" · "+({reg:"правильные глаголы",irr:"неправильные глаголы",sein:"глаголы с sein",id:"определи время"})[p[2]];if(p[0]=="b2")return"B2: "+({sprach:"Sprachbausteine",lesen:"Lesen",schreiben:"Schreiben"})[p[1]];return p[0]=="adj"?`Прилагательные: ${p[2]} · ${p[3]} · ${TR[p[1]]}`:p[0]=="art"?`Артикли: ${p[1]} · ${p[2]}`:`Предлог: ${p[1]}`};
+
+function menu(){
+ const now=Date.now(),pv=Object.values(prog),known=pv.filter(p=>p[0]>=4).length,due=pv.filter(p=>p[1]<=now).length;
+ let o=0,b=0;for(const k in st){o+=st[k][0];b+=st[k][1]}
+ const weak=Object.entries(st).filter(([k,v])=>v[0]+v[1]>=3&&v[1]>0).sort((x,y)=>y[1][1]/(y[1][0]+y[1][1])-x[1][1]/(x[1][0]+x[1][1])).slice(0,3);
+ app.innerHTML=`<h1>Немецкий</h1><small>Слова и грамматика. Прогресс хранится в браузере этого устройства.</small>
+ <div class="menu">${btn(0)}</div><p><small>B2 Prüfung (telc)</small></p><div class="menu" style="margin-top:0">${btn(1)}</div>
+ <p>Слова: начато ${pv.length} из ${W.length}, выучено ${known}, пора повторить ${due}.<br>Мои слова: ${mine().length}. <button data-a="imp" style="padding:4px 10px">Добавить</button><br>
+ Грамматика: ${o+b?`${o+b} ответов, верно ${Math.round(100*o/(o+b))}%.`:"пока нет ответов."}</p>
+ ${weak.length?`<p>Слабые места:<br>${weak.map(([k,v])=>`• ${pk(k)}: ошибок ${Math.round(100*v[1]/(v[0]+v[1]))}%`).join("<br>")}</p>`:""}`;
+}
+function show(){
+ const d=answered!=null,ok=answered==ex.ci,h=ex.hints;
+ app.innerHTML=`<div class="bar"><button data-a="menu">← Меню</button><small>${M[mode][0]}</small></div>
+ ${ex.ctx?`<div class="ctx">${ex.ctx()}</div>`:""}<div class="sent">${ex.prompt}</div><div class="vocab">${ex.vocab}</div>
+ <div class="opts" style="grid-template-columns:repeat(${ex.cols},1fr)">${ex.opts.map((o,i)=>`<button data-i="${i}" class="${d?(i==ex.ci?"ok":i==answered?"bad":""):""}" ${d?"disabled":""}>${o}</button>`).join("")}</div>
+ ${d?`<div class="fb ${ok?"ok":"bad"}"><b>${ok?"Верно!":"Нет. Правильно: "+ex.opts[ex.ci]}</b>\n${ex.ans}${!ok&&ex.why&&ex.why(answered)?"\n\n"+ex.why(answered):""}${ex.exp?"\n\n"+ex.exp:""}</div><button class="go" data-a="next">Дальше</button>`
+ :`${hl?`<div class="hint">${h.slice(0,hl).map((x,i)=>`${i+1}. ${x}`).join("<br>")}</div>`:""}${hl<h.length?`<button data-a="hint" style="margin-top:12px">Подсказка ${hl+1} из ${h.length}</button>`:""}`}`;
+}
+function next(){ex=M[mode][1]();answered=null;hl=0;if(!ex){imp("Пока нет слов. Вставь их ниже или подключи канал.");return}
+ ex.hints=[].concat(ex.hint||[]);
+ if(ex.opts.length>2){const wr=shuf(ex.opts.filter((o,i)=>i!=ex.ci)).slice(0,2);ex.hints.splice(Math.max(1,ex.hints.length-1),0,`Это точно не: ${wr.join(", ")}.`)}
+ show()}
+app.onclick=e=>{
+ const b=e.target.closest("button");if(!b)return;const d=b.dataset;
+ if(d.m){mode=d.m;next()}
+ else if(d.a=="menu")menu();
+ else if(d.a=="imp")imp();
+ else if(d.a=="save"){const v=document.getElementById("ta").value;if(v.trim()){try{localStorage.setItem("mw",(localStorage.getItem("mw")||"")+"\n"+v)}catch(e){}}imp(`Добавлено слов: ${pw(v).length}`)}
+ else if(d.a=="next")next();
+ else if(d.a=="hint"){hl++;show()}
+ else if(d.i!=null&&answered==null){
+  answered=+d.i;const ok=answered==ex.ci;
+  if(ex.kind=="v"){const bx=(prog[ex.key]||[0])[0],nb=ok?Math.min(bx+1,5):0;prog[ex.key]=[nb,Date.now()+INT[nb]];save("pr",prog)}
+  else{const s=st[ex.key]||[0,0];s[ok?0:1]++;st[ex.key]=s;save("st",st)}
+  if(ex.after)ex.after(ok);show()}
+};
+menu();
+loadCh().then(()=>{if(!ex&&!document.getElementById('ta'))menu()});
+</script>
+</body>
+</html>
